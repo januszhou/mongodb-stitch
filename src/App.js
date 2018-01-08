@@ -1,6 +1,9 @@
 import React, { Component } from 'react';
 import { StitchClient } from 'mongodb-stitch';
-import {Area, AreaChart, CartesianGrid, Legend, Line, LineChart, Tooltip, XAxis, YAxis} from "recharts";
+import {
+  Area, AreaChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis,
+  YAxis
+} from "recharts";
 
 const data = [
   {name: 'Page A', uv: 4000, pv: 2400, amt: 2400},
@@ -22,12 +25,22 @@ class App extends Component {
     }
   }
 
+  async login(){
+    try {
+      return await this.stitchClient.login();
+    } catch(e){
+      console.log('error: ', e);
+      return null;
+    }
+  }
+
   componentDidMount(){
     this.stitchClient = new StitchClient(this.appId);
-    this.stitchClient.login()
-      .then(() => console.log('logged in as: ' + this.stitchClient.authedId()))
-      .catch(e => console.log('error: ', e));
-
+    // this.stitchClient.login()
+    //   .then(() => console.log('logged in as: ' + this.stitchClient.authedId()))
+    //   .catch(e => console.log('error: ', e));
+    const loginRes = this.login();
+    console.log(loginRes);
     const db = this.stitchClient.service('mongodb', 'mongodb-atlas').db('palladium_notification_prod');
     const subscriberCollection = db.collection('subscribers');
     subscriberCollection.find({}).limit(5).execute().then((doc) => console.log(doc));
@@ -44,15 +57,17 @@ class App extends Component {
           <div className="card">
             <div className="card-header">Header</div>
             <div className="card-body">
-              <LineChart width={500} height={300} data={data} margin={{top: 5, right: 30, left: 20, bottom: 5}}>
-                <XAxis dataKey="name"/>
-                <YAxis/>
-                <CartesianGrid strokeDasharray="3 3"/>
-                <Tooltip/>
-                <Legend />
-                <Line type="monotone" dataKey="pv" stroke="#8884d8" activeDot={{r: 8}}/>
-                <Line type="monotone" dataKey="uv" stroke="#82ca9d" />
-              </LineChart>
+              <ResponsiveContainer minHeight={320}>
+                  <LineChart data={data}>
+                    <XAxis dataKey="name"/>
+                    <YAxis/>
+                    <CartesianGrid strokeDasharray="3 3"/>
+                    <Tooltip/>
+                    <Legend />
+                    <Line type="monotone" dataKey="pv" stroke="#8884d8" activeDot={{r: 8}}/>
+                    <Line type="monotone" dataKey="uv" stroke="#82ca9d" />
+                  </LineChart>
+              </ResponsiveContainer>
             </div>
             <div className="card-footer">
               <small className="text-muted">Last updated 3 mins ago</small>
@@ -61,15 +76,17 @@ class App extends Component {
           <div className="card">
             <div className="card-header">Header</div>
             <div className="card-body">
-              <LineChart width={500} height={300} data={data} margin={{top: 5, left: 20, bottom: 5}}>
-                <XAxis dataKey="name"/>
-                <YAxis/>
-                <CartesianGrid strokeDasharray="3 3"/>
-                <Tooltip/>
-                <Legend />
-                <Line type="monotone" dataKey="pv" stroke="#8884d8" activeDot={{r: 8}}/>
-                <Line type="monotone" dataKey="uv" stroke="#82ca9d" />
-              </LineChart>
+              <ResponsiveContainer minHeight={320}>
+                <LineChart width={500} height={300} data={data}>
+                  <XAxis dataKey="name"/>
+                  <YAxis/>
+                  <CartesianGrid strokeDasharray="3 3"/>
+                  <Tooltip/>
+                  <Legend />
+                  <Line type="monotone" dataKey="pv" stroke="#8884d8" activeDot={{r: 8}}/>
+                  <Line type="monotone" dataKey="uv" stroke="#82ca9d" />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
             <div className="card-footer">
               <small className="text-muted">Last updated 3 mins ago</small>

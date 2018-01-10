@@ -1,17 +1,14 @@
 import React, { Component } from 'react';
 import { StitchClient } from 'mongodb-stitch';
 import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis,
+  Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip,
+  XAxis,
   YAxis
 } from "recharts";
 
 import {fromJS} from 'immutable';
 import {DateRangePicker} from "react-dates";
 import * as moment from 'moment';
-
-const data = [
-  {name: 'Daily Notification', goldmine: 4000, palladium: 2400},
-];
 
 class LoginForm extends Component {
   state = {
@@ -37,66 +34,86 @@ class LoginForm extends Component {
       </form>
     )
   }
-};
+}
+class ChartFooter extends Component {
+  state = {
+    currentTime: moment()
+  };
 
+  componentDidMount(){
+    setInterval(() => {
+      this.setState({currentTime: moment()});
+    }, 1000);
+  }
+
+  render(){
+    return (
+      this.props.lastUpdate && <div className="card-footer">
+        <small className="text-muted">Last updated: {this.props.lastUpdate.from(this.state.currentTime)}</small>
+      </div>
+    )
+  }
+}
+
+const ChartHeader = (props) => {
+  return (
+    <div className="card-header">
+      <div className="d-flex">
+        <div className="mr-auto p-2">
+          <h4>{props.name}</h4>
+        </div>
+        {
+          props.includeDatePicker && (
+            <DateRangePicker
+              startDate={props.startDate} // momentPropTypes.momentObj or null,
+              endDate={props.endDate} // momentPropTypes.momentObj or null,
+              onDatesChange={({ startDate, endDate }) => props.setDate({ startDate, endDate })}
+              onFocusChange={focusedInput => props.setDate({ focusedInput })}
+            />
+          )
+        }
+        <div className="p-2">
+          <button type="button" className="btn btn-primary btn-sm" onClick={(e) => {
+            e.preventDefault();
+            props.onRefresh();
+          }}>
+            <i className="fa fa-refresh" aria-hidden="true"/>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 const Chart = (props) => {
-  const content = props.data ?
-    (
+  const data = props.data;
+  let content = (
+    <div className="card-body">
+      <i className="fa fa-spinner fa-spin fa-3x fa-fw"/>
+      <span className="sr-only">Loading...</span>
+    </div>
+  );
+  if(data){
+    const jsData = data.toJS();
+    content = (
       <div>
         <div className="card-body">
           <ResponsiveContainer minHeight={320}>
-            <BarChart data={[props.data.toJS()]}>
+            <BarChart data={[jsData]}>
               <XAxis dataKey="name"/>
-              <YAxis/>
+              <YAxis domain={[dataMin => 0, dataMax => Math.round(dataMax * 1.2)]}/>
               <CartesianGrid strokeDasharray="3 3"/>
               <Tooltip/>
               <Legend />
-              <Bar dataKey="goldmine" fill="#8884d8" />
-              <Bar dataKey="palladium" fill="#82ca9d" />
+              <Bar dataKey="goldmine" fill="#ffd200"/>
+              <Bar dataKey="palladium" fill="#7761a7"/>
+
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="card-footer">
-          <small className="text-muted">Last updated: {props.lastUpdate.from(props.currentTime)}</small>
-        </div>
       </div>
     )
-    : (
-      <div className="card-body">
-        <i className="fa fa-spinner fa-spin fa-3x fa-fw"/>
-        <span className="sr-only">Loading...</span>
-      </div>
-    );
-  return (
-    <div className="card">
-      <div className="card-header">
-        <div className="d-flex">
-          <div className="mr-auto p-2">
-            <h4>{props.name}</h4>
-          </div>
-          {
-            props.includeDatePicker && (
-              <DateRangePicker
-                startDate={props.startDate} // momentPropTypes.momentObj or null,
-                endDate={props.endDate} // momentPropTypes.momentObj or null,
-                onDatesChange={({ startDate, endDate }) => props.setDate({ startDate, endDate })}
-                onFocusChange={focusedInput => props.setDate({ focusedInput })}
-              />
-            )
-          }
-          <div className="p-2">
-            <button type="button" className="btn btn-primary btn-sm" onClick={(e) => {
-              e.preventDefault();
-              props.onRefresh();
-            }}>
-              <i className="fa fa-refresh" aria-hidden="true"/>
-            </button>
-          </div>
-        </div>
-      </div>
-      { content }
-    </div>
-  )
+  }
+  return content;
 };
 
 class App extends Component {
@@ -126,8 +143,7 @@ class App extends Component {
           data: null,
           start: null,
           end: null
-        },
-        currentTime: moment(),
+        }
       })
     };
     this.onSubmit = this.onSubmit.bind(this);
@@ -205,13 +221,9 @@ class App extends Component {
   }
 
   onSubmit({email, password}){
-    const initialLoading = this.initialLoading;
     this.login({email, password})
       .then(loginRes => {
         if(loginRes){
-          console.log(loginRes, this.stitchClient.authedId());
-
-          // start loading data
           this.initialLoading(this.stitchClient);
         } else {
           alert('Invalid Credential, try again please');
@@ -226,27 +238,36 @@ class App extends Component {
     if(authedId){
       this.initialLoading(this.stitchClient)
     }
-    setInterval(() => {
-      this.setState(({data}) => ({
-        data: data.set('currentTime',moment())
-      }));
-    }, 1000);
   }
   render() {
     const Charts = (
       <div className="card-deck">
-        <Chart name="Daily Notification"
-               data={this.state.data.getIn(['dailyNotification', 'data'])}
-               lastUpdate={this.state.data.getIn(['dailyNotification', 'lastUpdate'])}
-               onRefresh={this.loadDailyNotification}
-               currentTime={this.state.data.get('currentTime')}
-        />
-        <Chart name="Daily Subscriber"
-               data={this.state.data.getIn(['dailySubscriber', 'data'])}
-               lastUpdate={this.state.data.getIn(['dailySubscriber', 'lastUpdate'])}
-               onRefresh={this.loadDailySubscriber}
-               currentTime={this.state.data.get('currentTime')}
-        />
+        <div className="card">
+          <ChartHeader
+            name="Daily Notification"
+            onRefresh={this.loadDailyNotification}
+          />
+          <Chart
+            data={this.state.data.getIn(['dailyNotification', 'data'])}
+          />
+          <ChartFooter
+            lastUpdate={this.state.data.getIn(['dailyNotification', 'lastUpdate'])}
+            currentTime={this.state.data.get('currentTime')}
+          />
+        </div>
+
+        <div className="card">
+          <ChartHeader
+            name="Daily Subscriber"
+            onRefresh={this.loadDailyNotification}
+          />
+          <Chart
+            data={this.state.data.getIn(['dailySubscriber', 'data'])}
+          />
+          <ChartFooter
+            lastUpdate={this.state.data.getIn(['dailySubscriber', 'lastUpdate'])}
+          />
+        </div>
       </div>
     );
     const mainContent = this.state.data.get('authedId', null) ? Charts: <LoginForm onSubmit={this.onSubmit}/>;

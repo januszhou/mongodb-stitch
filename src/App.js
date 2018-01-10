@@ -57,7 +57,7 @@ const Chart = (props) => {
           </ResponsiveContainer>
         </div>
         <div className="card-footer">
-          <small className="text-muted">Last updated: {props.lastUpdate.from(moment())}</small>
+          <small className="text-muted">Last updated: {props.lastUpdate.from(props.currentTime)}</small>
         </div>
       </div>
     )
@@ -126,7 +126,8 @@ class App extends Component {
           data: null,
           start: null,
           end: null
-        }
+        },
+        currentTime: moment(),
       })
     };
     this.onSubmit = this.onSubmit.bind(this);
@@ -225,6 +226,11 @@ class App extends Component {
     if(authedId){
       this.initialLoading(this.stitchClient)
     }
+    setInterval(() => {
+      this.setState(({data}) => ({
+        data: data.set('currentTime',moment())
+      }));
+    }, 1000);
   }
   render() {
     const Charts = (
@@ -233,11 +239,13 @@ class App extends Component {
                data={this.state.data.getIn(['dailyNotification', 'data'])}
                lastUpdate={this.state.data.getIn(['dailyNotification', 'lastUpdate'])}
                onRefresh={this.loadDailyNotification}
+               currentTime={this.state.data.get('currentTime')}
         />
         <Chart name="Daily Subscriber"
                data={this.state.data.getIn(['dailySubscriber', 'data'])}
                lastUpdate={this.state.data.getIn(['dailySubscriber', 'lastUpdate'])}
                onRefresh={this.loadDailySubscriber}
+               currentTime={this.state.data.get('currentTime')}
         />
       </div>
     );

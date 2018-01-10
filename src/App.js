@@ -64,12 +64,15 @@ const ChartHeader = (props) => {
         </div>
         {
           props.includeDatePicker && (
-            <DateRangePicker
-              startDate={props.startDate} // momentPropTypes.momentObj or null,
-              endDate={props.endDate} // momentPropTypes.momentObj or null,
-              onDatesChange={({ startDate, endDate }) => props.setDate({ startDate, endDate })}
-              onFocusChange={focusedInput => props.setDate({ focusedInput })}
-            />
+            <div className="p-2">
+              <DateRangePicker
+                startDate={props.startDate} // momentPropTypes.momentObj or null,
+                endDate={props.endDate} // momentPropTypes.momentObj or null,
+                onDatesChange={({ startDate, endDate }) => props.setDate({ startDate, endDate })}
+                onFocusChange={focusedInput => props.setDate({ focusedInput })}
+                withPortal={true}
+              />
+            </div>
           )
         }
         <div className="p-2">
@@ -99,7 +102,7 @@ const Chart = (props) => {
         <div className="card-body">
           <ResponsiveContainer minHeight={320}>
             <BarChart data={jsData}>
-              <XAxis dataKey="name"/>
+              <XAxis dataKey="date"/>
               <YAxis domain={[dataMin => 0, dataMax => Math.round(dataMax * 1.2)]}/>
               <CartesianGrid strokeDasharray="3 3"/>
               <Tooltip/>
@@ -126,11 +129,15 @@ class App extends Component {
         authedId: null,
         dailyNotification: {
           lastUpdate: null,
-          data: null
+          data: null,
+          start: null,
+          end: null
         },
         dailySubscriber: {
           lastUpdate: null,
-          data: null
+          data: null,
+          start: null,
+          end: null
         },
         totalNotification: {
           lastUpdate: null,
@@ -160,7 +167,7 @@ class App extends Component {
     }
   }
 
-  async loadDailyNotification({ start, end } = { start: moment(), end: moment() }){
+  async loadDailyNotification({ start, end, key } = { start: moment(), end: moment(), key: 'dailyNotification' }){
     const pushCollection = this.db.collection('push');
     pushCollection.aggregate([
       {$match:
@@ -173,21 +180,24 @@ class App extends Component {
       },
       {$group: { _id: { month: { $month: "$createdAt" }, day: { $dayOfMonth: "$createdAt" }, year: { $year: "$createdAt" }, app: "$app" }, total: { $sum: 1 } }},
     ]).then(res => {
+      console.log(res);
       let formatResult = res.map(i => ({
-        name: `${i._id.month}/${i._id.day}/${i._id.year}`,
+        date: `${i._id.month}/${i._id.day}/${i._id.year}`,
         app: i._id.app,
         total: i.total
       })).reduce((accum, curr) => {
-        if(!accum[curr.name]) accum[curr.name] = {name: curr.name};
-        accum[curr.name][curr.app] = curr.total;
+        if(!accum[curr.date]) accum[curr.date] = {date: curr.date};
+        accum[curr.date][curr.app] = curr.total;
         return accum;
       }, {});
       formatResult = Object.values(formatResult);
-      console.log(formatResult);
+      formatResult.sort((a,b) => moment(a.date) > moment(b.date) ? 1 : -1);
       this.setState(({data}) => ({
-        data: data.set('dailyNotification',fromJS({
+        data: data.set(key,fromJS({
           data: formatResult,
-          lastUpdate: moment()
+          lastUpdate: moment(),
+          start,
+          end,
         }))
       }));
     }).catch(e =>
@@ -195,7 +205,7 @@ class App extends Component {
     )
   }
 
-  async loadDailySubscriber({ start, end } = { start: moment(), end: moment() }){
+  async loadDailySubscriber({ start, end, key } = { start: moment(), end: moment(), key: 'dailySubscriber' }){
     const subscriberCollection = this.db.collection('subscribers');
     subscriberCollection.aggregate([
       {$unwind: "$subscriptions" },
@@ -210,20 +220,22 @@ class App extends Component {
       {$group: { _id: { month: { $month: "$subscriptions.createdAt" }, day: { $dayOfMonth: "$subscriptions.createdAt" }, year: { $year: "$subscriptions.createdAt" }, app: "$subscriptions.app" }, total: { $sum: 1 } }},
     ]).then(res => {
       let formatResult = res.map(i => ({
-        name: `${i._id.month}/${i._id.day}/${i._id.year}`,
+        date: `${i._id.month}/${i._id.day}/${i._id.year}`,
         app: i._id.app,
         total: i.total
       })).reduce((accum, curr) => {
-        if(!accum[curr.name]) accum[curr.name] = {name: curr.name};
-        accum[curr.name][curr.app] = curr.total;
+        if(!accum[curr.date]) accum[curr.date] = {date: curr.date};
+        accum[curr.date][curr.app] = curr.total;
         return accum;
       }, {});
       formatResult = Object.values(formatResult);
-
+      formatResult.sort((a,b) => moment(a.date) > moment(b.date) ? 1 : -1);
       this.setState(({data}) => ({
-        data: data.set('dailySubscriber',fromJS({
+        data: data.set(key,fromJS({
           data: formatResult,
-          lastUpdate: moment()
+          lastUpdate: moment(),
+          start,
+          end
         }))
       }));
     }).catch(e =>
@@ -238,6 +250,8 @@ class App extends Component {
     }));
     this.loadDailySubscriber();
     this.loadDailyNotification();
+    this.loadDailySubscriber({ start: moment().subtract(7, 'day'), end: moment().subtract(1, 'day'), key:'totalSubscriber' });
+    this.loadDailyNotification({ start: moment().subtract(7, 'day'), end: moment().subtract(1, 'day'), key:'totalNotification' });
   }
 
   onSubmit({email, password}){
@@ -261,32 +275,64 @@ class App extends Component {
   }
   render() {
     const Charts = (
-      <div className="card-deck">
-        <div className="card">
-          <ChartHeader
-            name="Daily Notification"
-            onRefresh={this.loadDailyNotification}
-          />
-          <Chart
-            data={this.state.data.getIn(['dailyNotification', 'data'])}
-          />
-          <ChartFooter
-            lastUpdate={this.state.data.getIn(['dailyNotification', 'lastUpdate'])}
-            currentTime={this.state.data.get('currentTime')}
-          />
-        </div>
+      <div>
+        <div className="card-deck">
+          <div className="card">
+            <ChartHeader
+              name="Daily Notification"
+              onRefresh={this.loadDailyNotification}
+            />
+            <Chart
+              data={this.state.data.getIn(['dailyNotification', 'data'])}
+            />
+            <ChartFooter
+              lastUpdate={this.state.data.getIn(['dailyNotification', 'lastUpdate'])}
+            />
+          </div>
 
-        <div className="card">
-          <ChartHeader
-            name="Daily Subscriber"
-            onRefresh={this.loadDailyNotification}
-          />
-          <Chart
-            data={this.state.data.getIn(['dailySubscriber', 'data'])}
-          />
-          <ChartFooter
-            lastUpdate={this.state.data.getIn(['dailySubscriber', 'lastUpdate'])}
-          />
+          <div className="card">
+            <ChartHeader
+              name="Daily Subscriber"
+              onRefresh={this.loadDailySubscriber}
+            />
+            <Chart
+              data={this.state.data.getIn(['dailySubscriber', 'data'])}
+            />
+            <ChartFooter
+              lastUpdate={this.state.data.getIn(['dailySubscriber', 'lastUpdate'])}
+            />
+          </div>
+        </div>
+        <div className="card-deck">
+          <div className="card">
+            <ChartHeader
+              name="Total Notification"
+              onRefresh={this.loadDailyNotification}
+              includeDatePicker={true}
+              setDate={(data) => console.log(data)}
+              startDate={this.state.data.getIn(['totalNotification', 'start'])}
+              endDate={this.state.data.getIn(['totalNotification', 'end'])}
+            />
+            <Chart
+              data={this.state.data.getIn(['totalNotification', 'data'])}
+            />
+            <ChartFooter
+              lastUpdate={this.state.data.getIn(['totalNotification', 'lastUpdate'])}
+            />
+          </div>
+
+          <div className="card">
+            <ChartHeader
+              name="Total Subscriber"
+              onRefresh={this.loadDailySubscriber}
+            />
+            <Chart
+              data={this.state.data.getIn(['totalSubscriber', 'data'])}
+            />
+            <ChartFooter
+              lastUpdate={this.state.data.getIn(['totalSubscriber', 'lastUpdate'])}
+            />
+          </div>
         </div>
       </div>
     );

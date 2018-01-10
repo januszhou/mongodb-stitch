@@ -98,7 +98,7 @@ const Chart = (props) => {
       <div>
         <div className="card-body">
           <ResponsiveContainer minHeight={320}>
-            <BarChart data={[jsData]}>
+            <BarChart data={jsData}>
               <XAxis dataKey="name"/>
               <YAxis domain={[dataMin => 0, dataMax => Math.round(dataMax * 1.2)]}/>
               <CartesianGrid strokeDasharray="3 3"/>
@@ -171,12 +171,22 @@ class App extends Component {
           }
         }
       },
-      {$group: { _id: '$app', total: { $sum: 1 } }},
+      {$group: { _id: { month: { $month: "$createdAt" }, day: { $dayOfMonth: "$createdAt" }, year: { $year: "$createdAt" }, app: "$app" }, total: { $sum: 1 } }},
     ]).then(res => {
-      const dbData = res.reduce((accu, current) => { accu[current._id] = current.total; return accu;}, {name: 'Daily Notification'});
+      let formatResult = res.map(i => ({
+        name: `${i._id.month}/${i._id.day}/${i._id.year}`,
+        app: i._id.app,
+        total: i.total
+      })).reduce((accum, curr) => {
+        if(!accum[curr.name]) accum[curr.name] = {name: curr.name};
+        accum[curr.name][curr.app] = curr.total;
+        return accum;
+      }, {});
+      formatResult = Object.values(formatResult);
+      console.log(formatResult);
       this.setState(({data}) => ({
         data: data.set('dailyNotification',fromJS({
-          data: dbData,
+          data: formatResult,
           lastUpdate: moment()
         }))
       }));
@@ -197,12 +207,22 @@ class App extends Component {
           }
         }
       },
-      {$group: { _id: '$subscriptions.app', total: { $sum: 1 } }},
+      {$group: { _id: { month: { $month: "$subscriptions.createdAt" }, day: { $dayOfMonth: "$subscriptions.createdAt" }, year: { $year: "$subscriptions.createdAt" }, app: "$subscriptions.app" }, total: { $sum: 1 } }},
     ]).then(res => {
-      const dbData = res.reduce((accu, current) => { accu[current._id] = current.total; return accu;}, {name: 'Daily Subscriber'});
+      let formatResult = res.map(i => ({
+        name: `${i._id.month}/${i._id.day}/${i._id.year}`,
+        app: i._id.app,
+        total: i.total
+      })).reduce((accum, curr) => {
+        if(!accum[curr.name]) accum[curr.name] = {name: curr.name};
+        accum[curr.name][curr.app] = curr.total;
+        return accum;
+      }, {});
+      formatResult = Object.values(formatResult);
+
       this.setState(({data}) => ({
         data: data.set('dailySubscriber',fromJS({
-          data: dbData,
+          data: formatResult,
           lastUpdate: moment()
         }))
       }));

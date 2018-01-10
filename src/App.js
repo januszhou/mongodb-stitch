@@ -160,14 +160,14 @@ class App extends Component {
     }
   }
 
-  async loadDailyNotification(){
+  async loadDailyNotification({ start, end } = { start: moment(), end: moment() }){
     const pushCollection = this.db.collection('push');
     pushCollection.aggregate([
       {$match:
         {
           "createdAt": {
-            $lt: moment().endOf('day').toDate(),
-            $gte: moment().startOf('day').toDate(),
+            $lt: end.endOf('day').toDate(),
+            $gte: start.startOf('day').toDate(),
           }
         }
       },
@@ -185,15 +185,15 @@ class App extends Component {
     )
   }
 
-  async loadDailySubscriber(){
+  async loadDailySubscriber({ start, end } = { start: moment(), end: moment() }){
     const subscriberCollection = this.db.collection('subscribers');
     subscriberCollection.aggregate([
       {$unwind: "$subscriptions" },
       {$match:
         {
           "subscriptions.createdAt": {
-            $lt: moment().endOf('day').toDate(),
-            $gte: moment().startOf('day').toDate(),
+            $lt: end.endOf('day').toDate(),
+            $gte: start.startOf('day').toDate(),
           }
         }
       },

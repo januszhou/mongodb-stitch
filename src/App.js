@@ -166,8 +166,8 @@ class App extends Component {
       {$match:
         {
           "createdAt": {
-            $lt: new Date(),
-            $gte: new Date(new Date().setDate(new Date().getDate()-1))
+            $lt: moment().endOf('day').toDate(),
+            $gte: moment().startOf('day').toDate(),
           }
         }
       },
@@ -192,8 +192,8 @@ class App extends Component {
       {$match:
         {
           "subscriptions.createdAt": {
-            $lt: new Date(),
-            $gte: new Date(new Date().setDate(new Date().getDate()-1))
+            $lt: moment().endOf('day').toDate(),
+            $gte: moment().startOf('day').toDate(),
           }
         }
       },

@@ -7,8 +7,30 @@ import {
 } from "recharts";
 
 import {fromJS} from 'immutable';
-import {DateRangePicker} from "react-dates";
+import {DateRangePicker , isInclusivelyBeforeDay} from "react-dates";
 import * as moment from 'moment';
+
+class DateRangePickerWrapper extends Component {
+  state = {
+    focusedInput: null
+  };
+
+  setFocus = (focusedInput) => {
+    this.setState({ focusedInput });
+  };
+
+  render() {
+    return(
+      <DateRangePicker
+        onFocusChange={focusedInput => this.setFocus(focusedInput)}
+        focusedInput={this.state.focusedInput}
+        isOutsideRange={day => !isInclusivelyBeforeDay(day, moment())}
+        numberOfMonths={3}
+        {...this.props}
+      />
+    );
+  }
+}
 
 class LoginForm extends Component {
   state = {
@@ -65,11 +87,10 @@ const ChartHeader = (props) => {
         {
           props.includeDatePicker && (
             <div className="p-2">
-              <DateRangePicker
+              <DateRangePickerWrapper
                 startDate={props.startDate} // momentPropTypes.momentObj or null,
                 endDate={props.endDate} // momentPropTypes.momentObj or null,
                 onDatesChange={({ startDate, endDate }) => props.setDate({ startDate, endDate })}
-                onFocusChange={focusedInput => props.setDate({ focusedInput })}
                 withPortal={true}
               />
             </div>
@@ -307,9 +328,13 @@ class App extends Component {
           <div className="card">
             <ChartHeader
               name="Total Notification"
-              onRefresh={this.loadDailyNotification}
+              onRefresh={() => this.loadDailyNotification({start: this.state.data.getIn(['totalNotification', 'start']), end: this.state.data.getIn(['totalNotification', 'end']), key: 'totalNotification'})}
               includeDatePicker={true}
-              setDate={(data) => console.log(data)}
+              setDate={({startDate, endDate}) => {
+                this.setState(({data}) => ({
+                  data: data.setIn(['totalNotification', 'start'],startDate).setIn(['totalNotification', 'end'],endDate)
+                }));
+              }}
               startDate={this.state.data.getIn(['totalNotification', 'start'])}
               endDate={this.state.data.getIn(['totalNotification', 'end'])}
             />
@@ -324,7 +349,15 @@ class App extends Component {
           <div className="card">
             <ChartHeader
               name="Total Subscriber"
-              onRefresh={this.loadDailySubscriber}
+              onRefresh={() => this.loadDailySubscriber({start: this.state.data.getIn(['totalSubscriber', 'start']), end: this.state.data.getIn(['totalSubscriber', 'end']), key: 'totalSubscriber'})}
+              includeDatePicker={true}
+              setDate={({startDate, endDate}) => {
+                this.setState(({data}) => ({
+                  data: data.setIn(['totalSubscriber', 'start'],startDate).setIn(['totalSubscriber', 'end'],endDate)
+                }));
+              }}
+              startDate={this.state.data.getIn(['totalSubscriber', 'start'])}
+              endDate={this.state.data.getIn(['totalSubscriber', 'end'])}
             />
             <Chart
               data={this.state.data.getIn(['totalSubscriber', 'data'])}
